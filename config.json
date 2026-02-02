@@ -1,0 +1,28 @@
+{
+  "aws": {
+    "accountId": "891377317762",
+    "region": "us-east-1"
+  },
+  "s3": {
+    "bucket": "cdk-use1-deploy-bucket",
+    "prefix": "inventory/",
+    "alarmPrefix": "alarm/"
+  },
+  "resources": {
+    "types": ["lambda", "apigateway", "apigatewayv2"],
+    "tagFilters": [
+      {"key": "cmd-saas", "value": "12345"},
+      {"key": "environment", "value": "qa"}
+    ]
+  },
+  "lambda": {
+    "timeout": 900,
+    "memorySize": 512,
+    "logLevel": "INFO"
+  },
+  "schedule": {
+    "enabled": true,
+    "expression": "cron(0 2 * * ? *)",
+    "description": "Daily resource inventory scan at 2 AM UTC"
+  }
+}

@@ -1,0 +1,15 @@
+{
+  "name": "monitoring-module",
+  "version": "1.0.0",
+  "description": "Standalone monitoring module for AWS resource inventory",
+  "private": true,
+  "scripts": {
+    "build": "cd infra && npm install && npm run build",
+    "deploy": "npm run build && cd infra && npx cdk deploy --require-approval never",
+    "destroy": "cd infra && npx cdk destroy",
+    "clean": "rm -rf resource-inventory-lambda/dist infra/dist infra/cdk.out"
+  },
+  "devDependencies": {
+    "typescript": "^5.2.2"
+  }
+}
