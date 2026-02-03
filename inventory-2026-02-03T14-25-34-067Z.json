@@ -1,0 +1,102 @@
+{
+  "generatedAt": "2026-02-03T14:25:34.066Z",
+  "config": {
+    "resourceTypes": [
+      "lambda",
+      "apigateway",
+      "apigatewayv2"
+    ],
+    "tagFilters": [
+      {
+        "key": "cmd-saas",
+        "value": "12345"
+      },
+      {
+        "key": "environment",
+        "value": "qa"
+      }
+    ],
+    "s3Bucket": "cdk-use1-deploy-bucket",
+    "s3Prefix": "inventory/"
+  },
+  "totalResources": 3,
+  "resourcesByType": {
+    "lambda": 2,
+    "apigateway": 1,
+    "apigatewayv2": 0
+  },
+  "resources": [
+    {
+      "arn": "arn:aws:lambda:us-east-1:891377317762:function:lambda2",
+      "type": "lambda",
+      "name": "lambda2",
+      "region": "us-east-1",
+      "tags": {
+        "cmd-saas": "12345",
+        "environment": "qa",
+        "terraform": "false"
+      },
+      "metadata": {
+        "runtime": "python3.14",
+        "handler": "lambda_function.lambda_handler",
+        "codeSize": 299,
+        "timeout": 603,
+        "memorySize": 128,
+        "lastModified": "2026-02-01T06:28:04.844+0000",
+        "version": "$LATEST",
+        "description": ""
+      },
+      "discoveredAt": "2026-02-03T14:25:33.667Z"
+    },
+    {
+      "arn": "arn:aws:lambda:us-east-1:891377317762:function:lambdai1",
+      "type": "lambda",
+      "name": "lambdai1",
+      "region": "us-east-1",
+      "tags": {
+        "cmd-saas": "12345",
+        "environment": "qa",
+        "terraform": "false"
+      },
+      "metadata": {
+        "runtime": "python3.14",
+        "handler": "lambda_function.lambda_handler",
+        "codeSize": 299,
+        "timeout": 303,
+        "memorySize": 128,
+        "lastModified": "2026-02-01T06:25:34.000+0000",
+        "version": "$LATEST",
+        "description": ""
+      },
+      "discoveredAt": "2026-02-03T14:25:33.701Z"
+    },
+    {
+      "arn": "arn:aws:apigateway:us-east-1::/restapis/vljjn0cqpa",
+      "type": "apigateway",
+      "name": "test-api",
+      "region": "us-east-1",
+      "tags": {
+        "cmd-saas": "12345",
+        "environment": "qa",
+        "terraform": "false"
+      },
+      "metadata": {
+        "id": "vljjn0cqpa",
+        "createdDate": "2026-02-01T06:29:13.000Z",
+        "apiKeySource": "HEADER",
+        "endpointConfiguration": {
+          "ipAddressType": "ipv4",
+          "types": [
+            "REGIONAL"
+          ]
+        }
+      },
+      "discoveredAt": "2026-02-03T14:25:33.960Z"
+    }
+  ],
+  "statistics": {
+    "scanDurationMs": 1146,
+    "apiCalls": 14,
+    "errors": []
+  }
+}

@@ -1,12 +1,16 @@
 {
-  "name": "monitoring-infra",
+  "name": "alarm-deployment-cdk",
   "version": "1.0.0",
-  "description": "Standalone monitoring infrastructure using AWS CDK",
-  "main": "launcher.ts",
+  "description": "CDK for deploying CloudWatch alarms based on inventory",
+  "main": "app.ts",
   "scripts": {
-    "build": "cd ../resource-inventory-lambda && npm install && npm run build && cd ../cloudwatch-alarm-lambda && npm install && npm run build && cd ../infra && tsc",
+    "build": "tsc",
     "watch": "tsc -w",
-    "cdk": "cdk"
+    "deploy": "npm run build && npx cdk deploy --all --require-approval never",
+    "destroy": "npx cdk destroy --all",
+    "synth": "npm run build && npx cdk synth",
+    "diff": "npm run build && npx cdk diff",
+    "clean": "rm -rf dist cdk.out"
   },
   "devDependencies": {
     "@types/jest": "^29.5.5",

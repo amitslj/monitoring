@@ -1,13 +1,14 @@
 {
   "name": "monitoring-module",
   "version": "1.0.0",
-  "description": "Standalone monitoring module for AWS resource inventory",
+  "description": "AWS CloudWatch alarm deployment system using CDK",
   "private": true,
   "scripts": {
-    "build": "cd infra && npm install && npm run build",
-    "deploy": "npm run build && cd infra && npx cdk deploy --require-approval never",
-    "destroy": "cd infra && npx cdk destroy",
-    "clean": "rm -rf resource-inventory-lambda/dist infra/dist infra/cdk.out"
+    "deploy": "cd alarm-deployment-cdk && npm install && npm run deploy",
+    "destroy": "cd alarm-deployment-cdk && npm run destroy",
+    "synth": "cd alarm-deployment-cdk && npm install && npm run synth",
+    "diff": "cd alarm-deployment-cdk && npm install && npm run diff",
+    "clean": "rm -rf alarm-deployment-cdk/dist alarm-deployment-cdk/cdk.out"
   },
   "devDependencies": {
     "typescript": "^5.2.2"

@@ -1,312 +1,358 @@
-# Monitoring Module Installation Guide
+# Installation Guide - AWS Monitoring Module
 
-Installation and deployment guide for the standalone monitoring module with CloudWatch alarm management.
+Complete installation and setup guide for the AWS CloudWatch alarm deployment system.
 
 ## Prerequisites
 
-- **Node.js 18.x** or later
-- **AWS CLI** configured with credentials
-- **AWS CDK v2** installed globally: `npm install -g aws-cdk`
+### System Requirements
 
-## Configuration
+- **Node.js**: Version 18.x or later
+- **npm**: Version 8.x or later (comes with Node.js)
+- **AWS CLI**: Version 2.x (configured with credentials)
+- **AWS CDK**: Version 2.x installed globally
 
-All settings are managed in a single `config.json` file:
+### AWS Requirements
+
+- AWS account with appropriate permissions
+- AWS CLI configured with credentials
+- CDK bootstrapped in target account/region
+
+## Step-by-Step Installation
+
+### 1. Install Node.js
+
+Download and install Node.js 18.x+ from [nodejs.org](https://nodejs.org/)
+
+Verify installation:
+```bash
+node --version  # Should show v18.x.x or higher
+npm --version   # Should show 8.x.x or higher
+```
+
+### 2. Install AWS CLI
+
+#### Windows
+Download from [AWS CLI Installation Guide](https://docs.aws.amazon.com/cli/latest/userguide/getting-started-install.html)
+
+#### macOS
+```bash
+curl "https://awscli.amazonaws.com/AWSCLIV2.pkg" -o "AWSCLIV2.pkg"
+sudo installer -pkg AWSCLIV2.pkg -target /
+```
+
+#### Linux
+```bash
+curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
+unzip awscliv2.zip
+sudo ./aws/install
+```
+
+Verify installation:
+```bash
+aws --version  # Should show aws-cli/2.x.x
+```
+
+### 3. Configure AWS Credentials
+
+Configure your AWS credentials using one of these methods:
+
+#### Option A: AWS Configure (Recommended)
+```bash
+aws configure
+```
+
+Enter your:
+- AWS Access Key ID
+- AWS Secret Access Key
+- Default region (e.g., `us-east-1`)
+- Default output format (e.g., `json`)
+
+#### Option B: Environment Variables
+```bash
+export AWS_ACCESS_KEY_ID=your-access-key
+export AWS_SECRET_ACCESS_KEY=your-secret-key
+export AWS_DEFAULT_REGION=us-east-1
+```
+
+#### Option C: IAM Roles (for EC2/Lambda)
+If running on AWS infrastructure, use IAM roles instead of credentials.
+
+### 4. Install AWS CDK
+
+Install CDK globally:
+```bash
+npm install -g aws-cdk
+```
+
+Verify installation:
+```bash
+cdk --version  # Should show 2.x.x
+```
+
+### 5. Bootstrap CDK (One-time setup)
+
+Bootstrap CDK in your target AWS account and region:
+
+```bash
+cdk bootstrap aws://ACCOUNT-ID/REGION
+```
+
+Example:
+```bash
+cdk bootstrap aws://891377317762/us-east-1
+```
+
+**Note**: Replace `ACCOUNT-ID` and `REGION` with your actual values from `config.json`.
+
+### 6. Verify Prerequisites
+
+Run this verification script to check all prerequisites:
+
+```bash
+# Check Node.js
+node --version
+
+# Check npm
+npm --version
+
+# Check AWS CLI
+aws --version
+
+# Check CDK
+cdk --version
+
+# Check AWS credentials
+aws sts get-caller-identity
+
+# Check CDK bootstrap status
+aws cloudformation describe-stacks --stack-name CDKToolkit --region us-east-1
+```
+
+## Configuration Setup
+
+### 1. Update config.json
+
+Ensure your `config.json` is configured for your environment:
 
 ```json
 {
   "aws": {
-    "accountId": "891377317762",
-    "region": "us-east-1"
-  },
-  "s3": {
-    "bucket": "cdk-use1-deploy-bucket",
-    "prefix": "inventory/",
-    "alarmPrefix": "alarm/"
+    "accountId": "YOUR-ACCOUNT-ID",
+    "region": "YOUR-REGION"
   },
   "resources": {
     "types": ["lambda", "apigateway", "apigatewayv2"],
     "tagFilters": [
-      {"key": "Environment", "value": "qa"},
-      {"key": "Project", "value": "cmd-saas"}
+      {"key": "environment", "value": "qa"},
+      {"key": "cmd-saas", "value": "12345"}
     ]
-  },
-  "lambda": {
-    "timeout": 900,
-    "memorySize": 512,
-    "logLevel": "INFO"
-  },
-  "schedule": {
-    "enabled": true,
-    "expression": "cron(0 2 * * ? *)",
-    "description": "Daily resource inventory scan at 2 AM UTC"
   }
 }
 ```
 
-### Configuration Options
+**Important**: Update `accountId` and `region` to match your AWS environment.
 
-- **aws.accountId**: AWS account ID for deployment
-- **aws.region**: AWS region (e.g., us-east-1, eu-central-1)
-- **s3.bucket**: S3 bucket for storing inventory and alarm reports
-- **s3.prefix**: S3 prefix/folder for inventory reports
-- **s3.alarmPrefix**: S3 prefix/folder for alarm reports
-- **resources.types**: AWS resource types to scan (lambda, apigateway, apigatewayv2)
-- **resources.tagFilters**: Array of tag key/value pairs to filter resources
-- **lambda.timeout**: Lambda timeout in seconds (max 900)
-- **lambda.memorySize**: Lambda memory in MB (128-10240)
-- **lambda.logLevel**: Log level (DEBUG, INFO, WARN, ERROR)
-- **schedule.enabled**: Enable/disable scheduled execution
-- **schedule.expression**: Cron expression for schedule
+### 2. Verify Inventory File
 
-## Quick Start
+Ensure you have an inventory file in the root directory:
+- File should be named like `inventory-YYYY-MM-DDTHH-MM-SS-sssZ.json`
+- Contains discovered AWS resources
+- Matches the resource types in your `config.json`
 
-### 1. Configure AWS Credentials
+### 3. Review Alarm Mappings
 
-Your AWS credentials are already configured in `~/.aws/credentials`. The CDK will automatically use these credentials.
+Check `alarm-mappings.json` contains appropriate alarm definitions for your resource types.
 
-### 2. Upload Alarm Mappings
+## Deployment
 
-Upload the alarm configuration to S3:
+### First-Time Deployment
+
+1. **Install Dependencies**:
+   ```bash
+   cd alarm-deployment-cdk
+   npm install
+   cd ..
+   ```
+
+2. **Preview Deployment** (Optional):
+   ```bash
+   npm run synth-alarms
+   ```
+
+3. **Deploy Alarms**:
+   ```bash
+   npm run deploy
+   ```
+
+## Verification
+
+### 1. Check CloudFormation Stacks
 
 ```bash
-aws s3 cp alarm-mappings.json s3://cdk-use1-deploy-bucket/alarm-mappings.json
+aws cloudformation list-stacks --stack-status-filter CREATE_COMPLETE UPDATE_COMPLETE
 ```
 
-#Bootsrapping AWS Account -
-#npx cdk bootstrap aws://891377317762/us-east-1 --cloudformation-execution-policies arn:aws:iam::891377317762:policy/cdk-policy
+Look for:
+- `LambdaAlarmsStack`
+- `ApiGatewayAlarmsStack`
 
-### 3. Install Dependencies
-
-```bash
-npm install
-```
-
-### 4. Build
+### 2. Verify CloudWatch Alarms
 
 ```bash
-npm run build
-```
+# List all alarms
+aws cloudwatch describe-alarms --region us-east-1
 
-### 5. Deploy
-
-```bash
-npm run deploy
-```
-
-### 6. Test the Deployment
-
-```bash
-# Test resource inventory
-aws lambda invoke \
-  --function-name monitoring-resource-inventory-dev \
-  --payload '{}' \
-  response.json
-
-# Test alarm generation
-aws lambda invoke \
-  --function-name monitoring-alarm-generator-dev \
-  --payload '{}' \
-  alarm-response.json
-
-# View the responses
-cat response.json
-cat alarm-response.json
-```
-
-### 7. Check Results
-
-```bash
-# List inventory files in S3
-aws s3 ls s3://cdk-use1-deploy-bucket/inventory/ --recursive
-
-# List alarm results in S3
-aws s3 ls s3://cdk-use1-deploy-bucket/alarm/ --recursive
-
-# Check CloudWatch alarms
+# List alarms by prefix
 aws cloudwatch describe-alarms --alarm-name-prefix "lambda2-" --region us-east-1
 aws cloudwatch describe-alarms --alarm-name-prefix "test-api-" --region us-east-1
 ```
 
-## Available Commands
+### 3. Check AWS Console
 
-```bash
-# Build the module
-npm run build
-
-# Deploy infrastructure
-npm run deploy
-
-# Destroy infrastructure
-npm run destroy
-
-# Clean build artifacts
-npm run clean
-```
-
-## Manual Invocation
-
-### Default Parameters
-
-```bash
-aws lambda invoke \
-  --function-name monitoring-resource-inventory-dev \
-  --payload '{}' \
-  response.json
-```
-
-### Custom Parameters
-
-```bash
-aws lambda invoke \
-  --function-name monitoring-resource-inventory-dev \
-  --payload '{
-    "resourceTypes": ["lambda"],
-    "tagFilters": [
-      {"key": "Environment", "value": "prod"}
-    ]
-  }' \
-  response.json
-```
-
-## Output Files
-
-The system generates multiple types of reports in S3:
-
-1. **Detailed Inventory**: `s3://cdk-use1-deploy-bucket/inventory/inventory-TIMESTAMP.json`
-2. **Alarm Results**: `s3://cdk-use1-deploy-bucket/alarm/alarm-results-TIMESTAMP.json`
-3. **CloudWatch Alarms**: Created automatically in AWS CloudWatch
-
-### Sample Output
-
-```json
-{
-  "generatedAt": "2026-02-01T10:30:00.000Z",
-  "totalResources": 25,
-  "resourcesByType": {
-    "lambda": 15,
-    "apigateway": 5,
-    "apigatewayv2": 5
-  },
-  "resources": [
-    {
-      "arn": "arn:aws:lambda:us-east-1:123456789012:function:my-function",
-      "type": "lambda",
-      "name": "my-function",
-      "region": "us-east-1",
-      "tags": {
-        "Environment": "qa",
-        "Project": "cmd-saas"
-      },
-      "metadata": {
-        "runtime": "nodejs18.x",
-        "handler": "index.handler",
-        "memorySize": 512
-      }
-    }
-  ]
-}
-```
-
-## Extending Resource Types
-
-1. Add new resource type to `config.json`:
-
-```json
-{
-  "resources": {
-    "types": ["lambda", "apigateway", "apigatewayv2", "dynamodb"]
-  }
-}
-```
-
-2. Implement scanner in `resource-inventory-lambda/src/resource-scanner.ts`
-3. Update IAM permissions in `infra/stacks/monitoring-stack.ts`
-4. Redeploy with `npm run deploy`
+1. Go to AWS CloudWatch Console
+2. Navigate to "Alarms" section
+3. Verify alarms are created with correct names and configurations
 
 ## Troubleshooting
 
-### Common Issues
+### Common Installation Issues
 
-1. **Permission Errors**: Check AWS credentials are properly configured in `~/.aws/credentials`
-2. **S3 Access Denied**: Verify bucket exists and is accessible
-3. **Build Failures**: Ensure Node.js 18.x is installed
-4. **CDK Bootstrap**: Run `npx cdk bootstrap` if first time using CDK in this account/region
-
-### Debug Mode
-
-Set log level to DEBUG in `config.json`:
-
-```json
-{
-  "lambda": {
-    "logLevel": "DEBUG"
-  }
-}
-```
-
-### View Logs
-
+#### Node.js Version Issues
 ```bash
-# View CloudWatch logs
-aws logs tail /aws/lambda/monitoring-resource-inventory-dev --follow
+# Check current version
+node --version
+
+# If using nvm, switch to Node 18+
+nvm install 18
+nvm use 18
 ```
 
-## Security Note
+#### AWS CLI Not Found
+```bash
+# Check if AWS CLI is in PATH
+which aws
 
-✅ **Good Practice**: AWS credentials are now stored securely in the AWS credentials file (`~/.aws/credentials`). This is the recommended approach for local development and PoC work.
+# If not found, add to PATH or reinstall
+export PATH=$PATH:/usr/local/bin/aws
+```
+
+#### CDK Bootstrap Issues
+```bash
+# Check if bootstrap stack exists
+aws cloudformation describe-stacks --stack-name CDKToolkit
+
+# If not found, run bootstrap again
+cdk bootstrap aws://YOUR-ACCOUNT-ID/YOUR-REGION
+```
+
+#### Permission Errors
+Ensure your AWS credentials have these permissions:
+- `cloudformation:*`
+- `cloudwatch:*`
+- `iam:CreateRole`
+- `iam:AttachRolePolicy`
+- `s3:GetObject` (if using S3 for assets)
+
+### Deployment Issues
+
+#### No Stacks Created
+```bash
+# Check if inventory file exists
+ls -la inventory-*.json
+
+# Check if alarm mappings exist
+cat alarm-mappings.json
+
+# Verify configuration
+cat config.json
+```
+
+#### Build Errors
+```bash
+# Clean and rebuild
+cd alarm-deployment-cdk
+rm -rf node_modules dist
+npm install
+npm run build
+```
+
+#### CDK Deployment Errors
+```bash
+# Check CDK diff to see what would change
+npm run diff-alarms
+
+# Deploy with verbose output
+cd alarm-deployment-cdk
+npx cdk deploy --all --verbose
+```
+
+### Getting Help
+
+#### Check Logs
+```bash
+# CDK logs are in the terminal output
+# CloudFormation events in AWS Console
+# CloudWatch logs for any Lambda functions (if applicable)
+```
+
+#### Validate Configuration
+```bash
+# Test AWS credentials
+aws sts get-caller-identity
+
+# Test CDK
+cdk doctor
+
+# Validate JSON files
+python -m json.tool config.json
+python -m json.tool alarm-mappings.json
+```
+
+## Post-Installation
+
+### 1. Test Alarms
+
+You can test alarms by:
+- Triggering Lambda function errors
+- Generating API Gateway 4XX responses
+- Monitoring alarm states in CloudWatch
+
+### 2. Set Up Notifications (Optional)
+
+Consider adding SNS topics to your alarms for notifications:
+
+1. Create SNS topic
+2. Subscribe email/SMS to topic
+3. Update alarm definitions to include SNS topic ARN
+
+### 3. Monitor and Adjust
+
+- Review alarm states regularly
+- Adjust thresholds based on actual performance
+- Add new alarm types as needed
 
 ## Cleanup
 
+To remove all deployed resources:
+
 ```bash
-# Destroy all resources
-npm run destroy
+npm run destroy-alarms
 ```
 
-## Structure
+This will delete all CloudFormation stacks and associated alarms.
 
-```
-monitoring/
-├── config.json                      # Central configuration
-├── package.json                     # Build scripts
-├── README.md                        # Documentation
-├── INSTALL.md                       # Installation guide
-├── .gitignore                       # Git ignore patterns
-├── resource-inventory-lambda/       # Resource discovery Lambda
-│   ├── src/                         # TypeScript source
-│   ├── package.json                 # Lambda dependencies
-│   └── tsconfig.json                # TypeScript config
-├── cloudwatch-alarm-lambda/         # Alarm generation Lambda
-│   ├── src/                         # TypeScript source
-│   ├── package.json                 # Lambda dependencies
-│   └── tsconfig.json                # TypeScript config
-└── infra/                           # CDK infrastructure
-    ├── launcher.ts                  # CDK entry point
-    ├── stacks/
-    │   └── monitoring-stack.ts      # CDK stack
-    ├── package.json                 # CDK dependencies
-    ├── tsconfig.json                # TypeScript config
-    └── cdk.json                     # CDK configuration
-```
+## Support
 
-## What Gets Deployed
-
-- **Resource Inventory Lambda**: `monitoring-resource-inventory-dev`
-- **Alarm Generator Lambda**: `monitoring-alarm-generator-dev`
-- **EventBridge Rules**:
-  - `monitoring-daily-inventory-dev` (scheduled daily at 2:00 AM UTC)
-  - `monitoring-alarm-generation-dev` (scheduled daily at 2:15 AM UTC)
-- **IAM Roles**: Lambda execution roles with permissions to scan resources, write to S3, and manage CloudWatch alarms
-- **S3 Bucket**: References existing `cdk-use1-deploy-bucket`
-- **CloudWatch Alarms**: Automatically created for discovered resources
+For issues:
+1. Check this troubleshooting guide
+2. Review AWS CloudFormation events in the console
+3. Check CDK documentation: https://docs.aws.amazon.com/cdk/
+4. Verify AWS service limits and permissions
 
 ## Next Steps
 
-After successful deployment, consider:
-
-1. Customizing alarm thresholds in `alarm-mappings.json`
-2. Adding SNS notifications to CloudWatch alarms
-3. Implementing additional resource types (DynamoDB, RDS, etc.)
-4. Adding email notifications for inventory reports
-5. Setting up proper AWS credential management for production
-6. Adding error handling and retry logic
-7. Implementing alarm cleanup for deleted resources
+After successful installation:
+- Review created alarms in CloudWatch console
+- Consider adding SNS notifications
+- Plan for additional resource types
+- Set up monitoring dashboards
