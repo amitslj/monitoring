@@ -16,8 +16,9 @@ try {
   const alarmMappings = configLoader.loadAlarmMappings();
 
   console.log(`Loaded configuration for account: ${config.aws.accountId}, region: ${config.aws.region}`);
-  console.log(`Loaded inventory with ${inventory.totalResources} resources`);
-  console.log(`Resource types in inventory: ${Object.keys(inventory.resourcesByType).join(', ')}`);
+  console.log(`Loaded inventory for environment: ${inventory.environment}`);
+  console.log(`Lambda functions: ${inventory.lambdas?.length || 0}`);
+  console.log(`API Gateways: ${inventory.apiGateways?.length || 0}`);
   console.log(`Alarm mappings available for: ${Object.keys(alarmMappings.alarmMappings).join(', ')}`);
 
   // Common stack configuration
@@ -26,60 +27,51 @@ try {
     region: config.aws.region
   };
 
-  // Create stacks for each resource type that has resources and alarm definitions
-  const resourceTypes = config.resources.types;
+  const stackConfig: AlarmStackConfig = {
+    config,
+    inventory,
+    alarmMappings,
+    resourceType: '' // Not used in new structure
+  };
 
-  for (const resourceType of resourceTypes) {
-    const resources = configLoader.getResourcesByType(inventory, resourceType);
-    const alarmDefinitions = configLoader.getAlarmDefinitionsForResourceType(alarmMappings, resourceType);
-
-    if (resources.length === 0) {
-      console.log(`Skipping ${resourceType}: No resources found in inventory`);
-      continue;
+  // Create Lambda alarms stack if there are Lambda functions
+  if (inventory.lambdas && inventory.lambdas.length > 0) {
+    const lambdaAlarmDefinitions = configLoader.getAlarmDefinitionsForResourceType(alarmMappings, 'lambda');
+    
+    if (lambdaAlarmDefinitions.length > 0) {
+      console.log(`Creating Lambda alarms stack: ${inventory.lambdas.length} functions, ${lambdaAlarmDefinitions.length} alarm definitions`);
+      console.log(`Lambda functions: ${inventory.lambdas.join(', ')}`);
+      
+      new LambdaAlarmsStack(app, 'LambdaAlarmsStack', {
+        config: stackConfig,
+        env: stackEnv,
+        description: `CloudWatch alarms for Lambda functions - ${inventory.lambdas.length} functions`
+      });
+    } else {
+      console.log('Skipping Lambda alarms: No alarm definitions found');
     }
+  } else {
+    console.log('Skipping Lambda alarms: No Lambda functions found in inventory');
+  }
 
-    if (alarmDefinitions.length === 0) {
-      console.log(`Skipping ${resourceType}: No alarm definitions found`);
-      continue;
+  // Create API Gateway alarms stack if there are API Gateways
+  if (inventory.apiGateways && inventory.apiGateways.length > 0) {
+    const apiGatewayAlarmDefinitions = configLoader.getAlarmDefinitionsForResourceType(alarmMappings, 'apigateway');
+    
+    if (apiGatewayAlarmDefinitions.length > 0) {
+      console.log(`Creating API Gateway alarms stack: ${inventory.apiGateways.length} APIs, ${apiGatewayAlarmDefinitions.length} alarm definitions`);
+      console.log(`API Gateways: ${inventory.apiGateways.map(api => `${api.apiName}:${api.stage}`).join(', ')}`);
+      
+      new ApiGatewayAlarmsStack(app, 'ApiGatewayAlarmsStack', {
+        config: stackConfig,
+        env: stackEnv,
+        description: `CloudWatch alarms for API Gateway APIs - ${inventory.apiGateways.length} APIs`
+      });
+    } else {
+      console.log('Skipping API Gateway alarms: No alarm definitions found');
     }
-
-    console.log(`Creating stack for ${resourceType}: ${resources.length} resources, ${alarmDefinitions.length} alarm definitions`);
-
-    const stackConfig: AlarmStackConfig = {
-      config,
-      inventory,
-      alarmMappings,
-      resourceType
-    };
-
-    // Create appropriate stack based on resource type
-    switch (resourceType) {
-      case 'lambda':
-        new LambdaAlarmsStack(app, 'LambdaAlarmsStack', {
-          config: stackConfig,
-          env: stackEnv,
-          description: `CloudWatch alarms for Lambda functions - ${resources.length} resources`
-        });
-        break;
-
-      case 'apigateway':
-        new ApiGatewayAlarmsStack(app, 'ApiGatewayAlarmsStack', {
-          config: stackConfig,
-          env: stackEnv,
-          description: `CloudWatch alarms for API Gateway APIs - ${resources.length} resources`
-        });
-        break;
-
-      case 'apigatewayv2':
-        // For now, we'll skip API Gateway v2 as it's not in the current alarm mappings
-        // You can add a separate stack for this later if needed
-        console.log(`Skipping ${resourceType}: Stack not implemented yet`);
-        break;
-
-      default:
-        console.log(`Skipping ${resourceType}: Unknown resource type`);
-        break;
-    }
+  } else {
+    console.log('Skipping API Gateway alarms: No API Gateways found in inventory');
   }
 
   console.log('CDK app initialization completed');

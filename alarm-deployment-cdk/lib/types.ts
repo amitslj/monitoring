@@ -33,26 +33,21 @@ export interface TagFilter {
 }
 
 /**
- * Inventory types
+ * Inventory types - Simplified structure
  */
 export interface InventoryData {
-  generatedAt: string;
-  config: {
-    resourceTypes: string[];
-    tagFilters: TagFilter[];
-    s3Bucket: string;
-    s3Prefix: string;
-  };
-  totalResources: number;
-  resourcesByType: Record<string, number>;
-  resources: ResourceInfo[];
-  statistics: {
-    scanDurationMs: number;
-    apiCalls: number;
-    errors: string[];
-  };
+  environment: string;
+  tags: Record<string, string>;
+  lambdas: string[];
+  apiGateways: ApiGatewayResource[];
 }
 
+export interface ApiGatewayResource {
+  apiName: string;
+  stage: string;
+}
+
+// Legacy interface for backward compatibility (if needed)
 export interface ResourceInfo {
   arn: string;
   type: string;
@@ -64,7 +59,7 @@ export interface ResourceInfo {
 }
 
 /**
- * Alarm mapping types
+ * Alarm mapping types - New structure with separate files
  */
 export interface AlarmMapping {
   version: string;
@@ -72,6 +67,16 @@ export interface AlarmMapping {
   alarmMappings: {
     [resourceType: string]: AlarmDefinition[];
   };
+}
+
+/**
+ * Individual resource type alarm mapping
+ */
+export interface ResourceAlarmMapping {
+  version: string;
+  generatedAt: string;
+  resourceType: string;
+  alarmDefinitions: AlarmDefinition[];
 }
 
 export interface AlarmDefinition {

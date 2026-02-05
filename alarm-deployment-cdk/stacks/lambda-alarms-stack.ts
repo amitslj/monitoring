@@ -1,7 +1,7 @@
 import * as cdk from 'aws-cdk-lib';
 import * as cloudwatch from 'aws-cdk-lib/aws-cloudwatch';
 import { Construct } from 'constructs';
-import { AlarmStackConfig, ResourceInfo, AlarmDefinition } from '../lib/types';
+import { AlarmStackConfig, AlarmDefinition } from '../lib/types';
 import { AlarmUtils } from '../lib/alarm-utils';
 
 export interface LambdaAlarmsStackProps extends cdk.StackProps {
@@ -15,11 +15,11 @@ export class LambdaAlarmsStack extends cdk.Stack {
     super(scope, id, props);
 
     const { config } = props;
-    const lambdaResources = config.inventory.resources.filter(r => r.type === 'lambda');
+    const lambdaFunctions = config.inventory.lambdas || [];
     const alarmDefinitions = config.alarmMappings.alarmMappings.lambda || [];
 
-    if (lambdaResources.length === 0) {
-      console.log('No Lambda resources found in inventory');
+    if (lambdaFunctions.length === 0) {
+      console.log('No Lambda functions found in inventory');
       return;
     }
 
@@ -28,16 +28,16 @@ export class LambdaAlarmsStack extends cdk.Stack {
       return;
     }
 
-    console.log(`Creating alarms for ${lambdaResources.length} Lambda functions with ${alarmDefinitions.length} alarm definitions`);
+    console.log(`Creating alarms for ${lambdaFunctions.length} Lambda functions with ${alarmDefinitions.length} alarm definitions`);
 
     // Create alarms for each Lambda function
-    for (const resource of lambdaResources) {
+    for (const functionName of lambdaFunctions) {
       for (const alarmDef of alarmDefinitions) {
         try {
-          const alarm = this.createLambdaAlarm(resource, alarmDef);
+          const alarm = this.createLambdaAlarm(functionName, alarmDef, config.inventory.tags, config.config);
           this.alarms.push(alarm);
         } catch (error) {
-          console.error(`Failed to create alarm ${alarmDef.alarmName} for Lambda ${resource.name}:`, error);
+          console.error(`Failed to create alarm ${alarmDef.alarmName} for Lambda ${functionName}:`, error);
         }
       }
     }
@@ -48,9 +48,9 @@ export class LambdaAlarmsStack extends cdk.Stack {
       description: 'Number of Lambda alarms created'
     });
 
-    new cdk.CfnOutput(this, 'LambdaResourcesCount', {
-      value: lambdaResources.length.toString(),
-      description: 'Number of Lambda resources processed'
+    new cdk.CfnOutput(this, 'LambdaFunctionsCount', {
+      value: lambdaFunctions.length.toString(),
+      description: 'Number of Lambda functions processed'
     });
 
     // Output alarm names for reference
@@ -65,15 +65,15 @@ export class LambdaAlarmsStack extends cdk.Stack {
   /**
    * Create a CloudWatch alarm for a Lambda function
    */
-  private createLambdaAlarm(resource: ResourceInfo, alarmDef: AlarmDefinition): cloudwatch.Alarm {
-    const alarmName = AlarmUtils.generateAlarmName(resource, alarmDef);
-    const description = AlarmUtils.generateAlarmDescription(resource, alarmDef);
-    const threshold = AlarmUtils.calculateThreshold(resource, alarmDef);
+  private createLambdaAlarm(functionName: string, alarmDef: AlarmDefinition, inventoryTags: Record<string, string>, config: any): cloudwatch.Alarm {
+    const alarmName = AlarmUtils.generateLambdaAlarmName(functionName, alarmDef);
+    const description = AlarmUtils.generateLambdaAlarmDescription(functionName, alarmDef);
+    const threshold = AlarmUtils.calculateLambdaThreshold(alarmDef);
 
     // Build dimensions
     const dimensions: Record<string, string> = {};
     for (const dim of alarmDef.dimensions) {
-      dimensions[dim.name] = AlarmUtils.getResourceValue(resource, dim.valueFromResource);
+      dimensions[dim.name] = AlarmUtils.getLambdaResourceValue(functionName, dim.valueFromResource, config);
     }
 
     // Create the metric
@@ -86,7 +86,7 @@ export class LambdaAlarmsStack extends cdk.Stack {
     });
 
     // Create the alarm
-    const alarm = new cloudwatch.Alarm(this, `${resource.name}-${alarmDef.alarmName}`, {
+    const alarm = new cloudwatch.Alarm(this, `${functionName}-${alarmDef.alarmName}`, {
       alarmName,
       alarmDescription: description,
       metric,
@@ -97,7 +97,7 @@ export class LambdaAlarmsStack extends cdk.Stack {
     });
 
     // Add tags
-    const tags = AlarmUtils.convertResourceTagsToCdkTags(resource);
+    const tags = AlarmUtils.convertLambdaResourceToCdkTags(functionName, inventoryTags, config);
     for (const [key, value] of Object.entries(tags)) {
       cdk.Tags.of(alarm).add(key, value);
     }

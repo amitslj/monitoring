@@ -1,34 +1,59 @@
-import { ResourceInfo, AlarmDefinition } from './types';
+import { ApiGatewayResource, AlarmDefinition, MonitoringConfig } from './types';
 
 /**
  * Utility functions for alarm creation
  */
 export class AlarmUtils {
   /**
-   * Get a value from the resource based on the field path
+   * Construct Lambda ARN from function name and config
    */
-  static getResourceValue(resource: ResourceInfo, fieldPath: string): string {
+  static constructLambdaArn(functionName: string, config: MonitoringConfig): string {
+    return `arn:aws:lambda:${config.aws.region}:${config.aws.accountId}:function:${functionName}`;
+  }
+
+  /**
+   * Construct API Gateway ARN from API name and config (simplified)
+   */
+  static constructApiGatewayArn(apiName: string, config: MonitoringConfig): string {
+    // For simplicity, we'll use the API name as the API ID in the ARN
+    // In a real scenario, you might need to look up the actual API ID
+    return `arn:aws:apigateway:${config.aws.region}::/restapis/${apiName}`;
+  }
+
+  /**
+   * Get a value from Lambda resource based on the field path
+   */
+  static getLambdaResourceValue(functionName: string, fieldPath: string, config: MonitoringConfig): string {
     switch (fieldPath) {
       case 'name':
-        return resource.name;
+        return functionName;
       case 'arn':
-        return resource.arn;
-      case 'region':
-        return resource.region;
+        return this.constructLambdaArn(functionName, config);
       default:
-        // Try to get from metadata
-        if (resource.metadata && resource.metadata[fieldPath]) {
-          return String(resource.metadata[fieldPath]);
-        }
-        // Fallback to resource name
-        return resource.name;
+        return functionName;
     }
   }
 
   /**
-   * Calculate threshold based on alarm definition and resource metadata
+   * Get a value from API Gateway resource based on the field path
    */
-  static calculateThreshold(resource: ResourceInfo, alarmDef: AlarmDefinition): number {
+  static getApiGatewayResourceValue(resource: ApiGatewayResource, fieldPath: string, config: MonitoringConfig): string {
+    switch (fieldPath) {
+      case 'name':
+        return resource.apiName;
+      case 'arn':
+        return this.constructApiGatewayArn(resource.apiName, config);
+      case 'stage':
+        return resource.stage;
+      default:
+        return resource.apiName;
+    }
+  }
+
+  /**
+   * Calculate threshold for Lambda resource
+   */
+  static calculateLambdaThreshold(alarmDef: AlarmDefinition): number {
     if (alarmDef.threshold !== undefined) {
       return alarmDef.threshold;
     }
@@ -36,46 +61,80 @@ export class AlarmUtils {
     if (alarmDef.thresholdFromResource) {
       switch (alarmDef.thresholdFromResource) {
         case 'timeout_80_percent':
-          // For Lambda timeout alarms, use 80% of the timeout value
-          if (resource.metadata && resource.metadata.timeout) {
-            return Math.floor(resource.metadata.timeout * 0.8 * 1000); // Convert to milliseconds
-          }
-          break;
+          // Default Lambda timeout is 3 seconds, use 80% of that
+          // In a real scenario, you might want to fetch this from AWS API
+          return Math.floor(3 * 0.8 * 1000); // 2.4 seconds in milliseconds
         default:
-          if (resource.metadata && resource.metadata[alarmDef.thresholdFromResource]) {
-            return Number(resource.metadata[alarmDef.thresholdFromResource]);
-          }
+          return 100;
       }
     }
 
-    // Default threshold
     return 100;
   }
 
   /**
-   * Generate alarm name for a resource
+   * Calculate threshold for API Gateway resource
    */
-  static generateAlarmName(resource: ResourceInfo, alarmDef: AlarmDefinition): string {
-    return `${resource.name}-${alarmDef.alarmName}`;
+  static calculateApiGatewayThreshold(alarmDef: AlarmDefinition): number {
+    if (alarmDef.threshold !== undefined) {
+      return alarmDef.threshold;
+    }
+
+    // Default threshold for API Gateway
+    return 100;
   }
 
   /**
-   * Generate alarm description for a resource
+   * Generate alarm name for Lambda resource
    */
-  static generateAlarmDescription(resource: ResourceInfo, alarmDef: AlarmDefinition): string {
-    return `${alarmDef.description} for ${resource.name}`;
+  static generateLambdaAlarmName(functionName: string, alarmDef: AlarmDefinition): string {
+    return `${functionName}-${alarmDef.alarmName}`;
   }
 
   /**
-   * Convert resource tags to CDK tags format
+   * Generate alarm name for API Gateway resource
    */
-  static convertResourceTagsToCdkTags(resource: ResourceInfo): Record<string, string> {
+  static generateApiGatewayAlarmName(resource: ApiGatewayResource, alarmDef: AlarmDefinition): string {
+    return `${resource.apiName}-${alarmDef.alarmName}`;
+  }
+
+  /**
+   * Generate alarm description for Lambda resource
+   */
+  static generateLambdaAlarmDescription(functionName: string, alarmDef: AlarmDefinition): string {
+    return `${alarmDef.description} for ${functionName}`;
+  }
+
+  /**
+   * Generate alarm description for API Gateway resource
+   */
+  static generateApiGatewayAlarmDescription(resource: ApiGatewayResource, alarmDef: AlarmDefinition): string {
+    return `${alarmDef.description} for ${resource.apiName}`;
+  }
+
+  /**
+   * Convert Lambda resource to CDK tags format
+   */
+  static convertLambdaResourceToCdkTags(functionName: string, inventoryTags: Record<string, string>, config: MonitoringConfig): Record<string, string> {
     return {
       CreatedBy: 'MonitoringSystem',
-      ResourceArn: resource.arn,
-      ResourceType: resource.type,
-      ResourceName: resource.name,
-      ...resource.tags
+      ResourceArn: this.constructLambdaArn(functionName, config),
+      ResourceType: 'lambda',
+      ResourceName: functionName,
+      ...inventoryTags
+    };
+  }
+
+  /**
+   * Convert API Gateway resource to CDK tags format
+   */
+  static convertApiGatewayResourceToCdkTags(resource: ApiGatewayResource, inventoryTags: Record<string, string>, config: MonitoringConfig): Record<string, string> {
+    return {
+      CreatedBy: 'MonitoringSystem',
+      ResourceArn: this.constructApiGatewayArn(resource.apiName, config),
+      ResourceType: 'apigateway',
+      ResourceName: resource.apiName,
+      ...inventoryTags
     };
   }
 }

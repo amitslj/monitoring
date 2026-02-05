@@ -1,7 +1,7 @@
 import * as cdk from 'aws-cdk-lib';
 import * as cloudwatch from 'aws-cdk-lib/aws-cloudwatch';
 import { Construct } from 'constructs';
-import { AlarmStackConfig, ResourceInfo, AlarmDefinition } from '../lib/types';
+import { AlarmStackConfig, ApiGatewayResource, AlarmDefinition } from '../lib/types';
 import { AlarmUtils } from '../lib/alarm-utils';
 
 export interface ApiGatewayAlarmsStackProps extends cdk.StackProps {
@@ -15,7 +15,7 @@ export class ApiGatewayAlarmsStack extends cdk.Stack {
     super(scope, id, props);
 
     const { config } = props;
-    const apiGatewayResources = config.inventory.resources.filter(r => r.type === 'apigateway');
+    const apiGatewayResources = config.inventory.apiGateways || [];
     const alarmDefinitions = config.alarmMappings.alarmMappings.apigateway || [];
 
     if (apiGatewayResources.length === 0) {
@@ -34,10 +34,10 @@ export class ApiGatewayAlarmsStack extends cdk.Stack {
     for (const resource of apiGatewayResources) {
       for (const alarmDef of alarmDefinitions) {
         try {
-          const alarm = this.createApiGatewayAlarm(resource, alarmDef);
+          const alarm = this.createApiGatewayAlarm(resource, alarmDef, config.inventory.tags, config.config);
           this.alarms.push(alarm);
         } catch (error) {
-          console.error(`Failed to create alarm ${alarmDef.alarmName} for API Gateway ${resource.name}:`, error);
+          console.error(`Failed to create alarm ${alarmDef.alarmName} for API Gateway ${resource.apiName}:`, error);
         }
       }
     }
@@ -65,23 +65,15 @@ export class ApiGatewayAlarmsStack extends cdk.Stack {
   /**
    * Create a CloudWatch alarm for an API Gateway
    */
-  private createApiGatewayAlarm(resource: ResourceInfo, alarmDef: AlarmDefinition): cloudwatch.Alarm {
-    const alarmName = AlarmUtils.generateAlarmName(resource, alarmDef);
-    const description = AlarmUtils.generateAlarmDescription(resource, alarmDef);
-    const threshold = AlarmUtils.calculateThreshold(resource, alarmDef);
+  private createApiGatewayAlarm(resource: ApiGatewayResource, alarmDef: AlarmDefinition, inventoryTags: Record<string, string>, config: any): cloudwatch.Alarm {
+    const alarmName = AlarmUtils.generateApiGatewayAlarmName(resource, alarmDef);
+    const description = AlarmUtils.generateApiGatewayAlarmDescription(resource, alarmDef);
+    const threshold = AlarmUtils.calculateApiGatewayThreshold(alarmDef);
 
-    // Build dimensions - API Gateway alarms need special handling
+    // Build dimensions
     const dimensions: Record<string, string> = {};
     for (const dim of alarmDef.dimensions) {
-      if (dim.name === 'ApiName') {
-        // For API Gateway, use the API name
-        dimensions[dim.name] = AlarmUtils.getResourceValue(resource, dim.valueFromResource);
-      } else if (dim.name === 'ApiId') {
-        // For API Gateway, extract API ID from metadata
-        dimensions[dim.name] = resource.metadata.id || AlarmUtils.getResourceValue(resource, dim.valueFromResource);
-      } else {
-        dimensions[dim.name] = AlarmUtils.getResourceValue(resource, dim.valueFromResource);
-      }
+      dimensions[dim.name] = AlarmUtils.getApiGatewayResourceValue(resource, dim.valueFromResource, config);
     }
 
     // Create the metric
@@ -94,7 +86,7 @@ export class ApiGatewayAlarmsStack extends cdk.Stack {
     });
 
     // Create the alarm
-    const alarm = new cloudwatch.Alarm(this, `${resource.name}-${alarmDef.alarmName}`, {
+    const alarm = new cloudwatch.Alarm(this, `${resource.apiName}-${alarmDef.alarmName}`, {
       alarmName,
       alarmDescription: description,
       metric,
@@ -105,7 +97,7 @@ export class ApiGatewayAlarmsStack extends cdk.Stack {
     });
 
     // Add tags
-    const tags = AlarmUtils.convertResourceTagsToCdkTags(resource);
+    const tags = AlarmUtils.convertApiGatewayResourceToCdkTags(resource, inventoryTags, config);
     for (const [key, value] of Object.entries(tags)) {
       cdk.Tags.of(alarm).add(key, value);
     }

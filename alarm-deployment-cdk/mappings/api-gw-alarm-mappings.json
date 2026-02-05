@@ -1,0 +1,43 @@
+{
+  "version": "1.0",
+  "generatedAt": "2026-02-01T13:30:00.000Z",
+  "resourceType": "apigateway",
+  "alarmDefinitions": [
+    {
+      "alarmName": "High4XXErrors",
+      "description": "API Gateway 4XX error rate is high",
+      "metricName": "4XXError",
+      "namespace": "AWS/ApiGateway",
+      "statistic": "Sum",
+      "period": 300,
+      "evaluationPeriods": 2,
+      "threshold": 10,
+      "comparisonOperator": "GreaterThanThreshold",
+      "treatMissingData": "notBreaching",
+      "dimensions": [
+        {
+          "name": "ApiName",
+          "valueFromResource": "name"
+        }
+      ]
+    },
+    {
+      "alarmName": "HighLatency",
+      "description": "API Gateway latency is high",
+      "metricName": "Latency",
+      "namespace": "AWS/ApiGateway",
+      "statistic": "Average",
+      "period": 300,
+      "evaluationPeriods": 3,
+      "threshold": 5000,
+      "comparisonOperator": "GreaterThanThreshold",
+      "treatMissingData": "notBreaching",
+      "dimensions": [
+        {
+          "name": "ApiName",
+          "valueFromResource": "name"
+        }
+      ]
+    }
+  ]
+}

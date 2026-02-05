@@ -1,6 +1,6 @@
 import * as fs from 'fs';
 import * as path from 'path';
-import { MonitoringConfig, InventoryData, AlarmMapping } from './types';
+import { MonitoringConfig, InventoryData, AlarmMapping, ResourceAlarmMapping } from './types';
 
 /**
  * Configuration and data loader utility
@@ -60,24 +60,96 @@ export class ConfigLoader {
   }
 
   /**
-   * Load alarm mappings configuration
+   * Load alarm mappings configuration from separate files
    */
   loadAlarmMappings(): AlarmMapping {
-    const alarmMappingsPath = path.join(this.rootDir, 'alarm-mappings.json');
+    const mappingsDir = path.join(__dirname, '..', 'mappings');
     
-    if (!fs.existsSync(alarmMappingsPath)) {
-      throw new Error(`Alarm mappings file not found: ${alarmMappingsPath}`);
+    // Load Lambda alarm mappings
+    const lambdaMappingsPath = path.join(mappingsDir, 'lambda-alarm-mappings.json');
+    const apiGwMappingsPath = path.join(mappingsDir, 'api-gw-alarm-mappings.json');
+    
+    const alarmMappings: AlarmMapping = {
+      version: '1.0',
+      generatedAt: new Date().toISOString(),
+      alarmMappings: {}
+    };
+
+    // Load Lambda mappings if file exists
+    if (fs.existsSync(lambdaMappingsPath)) {
+      const lambdaContent = fs.readFileSync(lambdaMappingsPath, 'utf8');
+      const lambdaMapping: ResourceAlarmMapping = JSON.parse(lambdaContent);
+      alarmMappings.alarmMappings[lambdaMapping.resourceType] = lambdaMapping.alarmDefinitions;
+      console.log(`Loaded ${lambdaMapping.alarmDefinitions.length} Lambda alarm definitions`);
     }
 
-    const alarmMappingsContent = fs.readFileSync(alarmMappingsPath, 'utf8');
-    return JSON.parse(alarmMappingsContent) as AlarmMapping;
+    // Load API Gateway mappings if file exists
+    if (fs.existsSync(apiGwMappingsPath)) {
+      const apiGwContent = fs.readFileSync(apiGwMappingsPath, 'utf8');
+      const apiGwMapping: ResourceAlarmMapping = JSON.parse(apiGwContent);
+      alarmMappings.alarmMappings[apiGwMapping.resourceType] = apiGwMapping.alarmDefinitions;
+      console.log(`Loaded ${apiGwMapping.alarmDefinitions.length} API Gateway alarm definitions`);
+    }
+
+    return alarmMappings;
   }
 
   /**
-   * Get resources by type from inventory
+   * Load alarm mappings for a specific resource type
+   */
+  loadResourceAlarmMappings(resourceType: string): ResourceAlarmMapping | null {
+    const mappingsDir = path.join(__dirname, '..', 'mappings');
+    let mappingFile: string;
+
+    switch (resourceType) {
+      case 'lambda':
+        mappingFile = 'lambda-alarm-mappings.json';
+        break;
+      case 'apigateway':
+        mappingFile = 'api-gw-alarm-mappings.json';
+        break;
+      default:
+        console.warn(`No mapping file found for resource type: ${resourceType}`);
+        return null;
+    }
+
+    const mappingPath = path.join(mappingsDir, mappingFile);
+    
+    if (!fs.existsSync(mappingPath)) {
+      console.warn(`Mapping file not found: ${mappingPath}`);
+      return null;
+    }
+
+    const mappingContent = fs.readFileSync(mappingPath, 'utf8');
+    return JSON.parse(mappingContent) as ResourceAlarmMapping;
+  }
+
+  /**
+   * Get Lambda function names from inventory
+   */
+  getLambdaFunctions(inventory: InventoryData): string[] {
+    return inventory.lambdas || [];
+  }
+
+  /**
+   * Get API Gateway resources from inventory
+   */
+  getApiGatewayResources(inventory: InventoryData) {
+    return inventory.apiGateways || [];
+  }
+
+  /**
+   * Get resources by type from inventory (simplified structure)
    */
   getResourcesByType(inventory: InventoryData, resourceType: string) {
-    return inventory.resources.filter(resource => resource.type === resourceType);
+    switch (resourceType) {
+      case 'lambda':
+        return this.getLambdaFunctions(inventory);
+      case 'apigateway':
+        return this.getApiGatewayResources(inventory);
+      default:
+        return [];
+    }
   }
 
   /**
